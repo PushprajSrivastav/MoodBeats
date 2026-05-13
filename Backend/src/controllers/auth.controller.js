@@ -50,7 +50,12 @@ const loginUser = async (req, res) => {
             return res.status(401).json({ message: "Invalid Credentials" });
         }
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
-        res.cookie("token", token);
+        res.cookie("token", token, {
+            httpOnly: true,
+            secure: true,
+            sameSite: "none",
+            maxAge: 7 * 24 * 60 * 60 * 1000
+        });
         res.status(200).json({
             message: "User logged in successfully", user: {
                 _id: user._id,
@@ -76,7 +81,11 @@ async function getMe(req, res) {
 
 async function logoutUser(req, res) {
     const token = req.cookies.token;
-    res.clearCookie("token");
+    res.clearCookie("token", {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none"
+    });
     await redis.set(token, Date.now().toString());    
     await blackListModel.create({ token });
     res.status(200).json({ message: "User logged out successfully" });
