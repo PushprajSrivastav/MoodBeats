@@ -180,9 +180,7 @@ const Home = () => {
         
         try {
             setIsUploading(true);
-            const res = await api.post('/api/songs', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            const res = await api.post('/api/songs', formData);
             if (res.data.success) {
                 setShowUploadModal(false);
                 setUploadFile(null);
@@ -190,6 +188,7 @@ const Home = () => {
             }
         } catch (err) {
             console.error('Upload failed', err);
+            alert("Upload failed: " + (err.response?.data?.message || err.message));
         } finally {
             setIsUploading(false);
         }
