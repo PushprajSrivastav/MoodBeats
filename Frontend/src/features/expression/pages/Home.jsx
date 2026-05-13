@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import '../styles/home.scss';
 import { useAuth } from '../../auth/hooks/useAuth';
 import FaceExpression from '../component/FaceExpression';
-import axios from 'axios';
+import { api } from '../../auth/services/auth.api.js';
 
 const Home = () => {
     const { user, handleLogout } = useAuth();
@@ -47,13 +47,13 @@ const Home = () => {
                 all: 'all'
             };
             
-            let url = (import.meta.env.VITE_API_URL || 'http://localhost:3000') + '/api/songs';
+            let url = '/api/songs';
             if (mood && mood !== 'Neutral' && mood !== 'all') {
                  const mappedMood = moodMap[mood] || mood.toLowerCase();
                  url += `?mood=${mappedMood}`;
             }
             
-            const response = await axios.get(url, { withCredentials: true });
+            const response = await api.get(url);
             if (response.data.success) {
                 let songs = response.data.data;
                 
@@ -180,9 +180,8 @@ const Home = () => {
         
         try {
             setIsUploading(true);
-            const res = await axios.post((import.meta.env.VITE_API_URL || 'http://localhost:3000') + '/api/songs', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-                withCredentials: true
+            const res = await api.post('/api/songs', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
             });
             if (res.data.success) {
                 setShowUploadModal(false);
@@ -200,7 +199,7 @@ const Home = () => {
         if (!songToDelete) return;
 
         try {
-            const res = await axios.delete(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/songs/${songToDelete}`, { withCredentials: true });
+            const res = await api.delete(`/api/songs/${songToDelete}`);
             if (res.data.success) {
                 setSongToDelete(null);
                 // Refresh current list
@@ -215,7 +214,7 @@ const Home = () => {
 
     const handleUpdateMood = async (songId, newMood) => {
         try {
-            const res = await axios.patch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/songs/${songId}/mood`, { mood: newMood }, { withCredentials: true });
+            const res = await api.patch(`/api/songs/${songId}/mood`, { mood: newMood });
             if (res.data.success) {
                 setEditingSong(null);
                 // Refresh current list
