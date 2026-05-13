@@ -3,32 +3,47 @@ const id3 = require('node-id3');
 const storageService = require('../services/storage.service');
 
 async function uploadSong(req, res) {
-    const songBuffer = req.file.buffer;
-    const mood = req.body.mood;
-    const tags = id3.read(songBuffer)
+    try {
+        const songBuffer = req.file.buffer;
+        const mood = req.body.mood;
+        const tags = id3.read(songBuffer) || {};
+        
+        const title = tags.title || "Unknown_Song_" + Date.now();
+        const promises = [
+            storageService.uploadFile({ buffer: songBuffer, filename: title + ".mp3", folder: "moodify/songs" })
+        ];
 
-    const [songfile , thumbnailFile] = await Promise.all([
-        storageService.uploadFile({ buffer: songBuffer, filename: tags.title + ".mp3", folder: "moodify/songs" }),
+        if (tags.image && tags.image.imageBuffer) {
+            promises.push(storageService.uploadFile({ buffer: tags.image.imageBuffer, filename: title + ".jpg", folder: "moodify/thumbnails" }));
+        }
 
-        storageService.uploadFile({ buffer: tags.image.imageBuffer, filename: tags.title + ".jpg", folder: "moodify/thumbnails" })
-    ])
+        const results = await Promise.all(promises);
+        const songfile = results[0];
+        const thumbnailFile = results.length > 1 ? results[1] : null;
 
-    const existingSong = await songModel.findOne({ title: tags.title, user: req.user._id });
+        const existingSong = await songModel.findOne({ title: title, user: req.user._id });
 
-    if (existingSong) {
-        existingSong.mood = mood ? mood.toLowerCase() : existingSong.mood;
-        await existingSong.save();
-        return res.status(200).json({ success: true, message: "Song mood updated successfully", data: existingSong });
+        if (existingSong) {
+            existingSong.mood = mood ? mood.toLowerCase() : existingSong.mood;
+            if (!existingSong.posterUrl && thumbnailFile) {
+                existingSong.posterUrl = thumbnailFile.url;
+            }
+            await existingSong.save();
+            return res.status(200).json({ success: true, message: "Song mood updated successfully", data: existingSong });
+        }
+
+        const song = await songModel.create({
+            title: title,
+            posterUrl: thumbnailFile ? thumbnailFile.url : null,
+            url: songfile.url,
+            mood: mood ? mood.toLowerCase() : undefined,
+            user: req.user._id
+        });
+        return res.status(201).json({ success: true, message: "Song uploaded successfully", data: song });
+    } catch (error) {
+        console.error("Upload error:", error);
+        return res.status(500).json({ success: false, message: "Failed to upload song", error: error.message });
     }
-
-    const song = await songModel.create({
-        title:tags.title,
-        posterUrl:thumbnailFile.url,
-        url:songfile.url,
-        mood: mood ? mood.toLowerCase() : undefined,
-        user: req.user._id
-    })
-    return res.status(201).json({ success: true, message: "Song uploaded successfully", data: song })
 }
 
 async function getSongs(req, res) {
